@@ -93,9 +93,29 @@
 
       <hr v-if="tickers.length" class="w-full border-t border-gray-600 my-4" />
 
+      <div>
+        <button
+          v-on:click="currentPage -= 1"
+          v-if="currentPage > 1"
+          class="my-4 mx-2 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+        >
+          Назад
+        </button>
+        <button
+          v-on:click="currentPage += 1"
+          v-if="hasNextPage"
+          class="my-4 mx-2 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+        >
+          Вперёд
+        </button>
+        <div>Фильтр: <input v-model="filter" type="text" /></div>
+      </div>
+
+      <hr class="w-full border-t border-gray-600 my-4" />
+
       <dl class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
         <div
-          v-for="t in tickers"
+          v-for="t in filterTickers()"
           v-bind:key="t.id"
           v-bind:class="{
             'border-4': selectedTicker?.id === t.id,
@@ -189,10 +209,18 @@ export default {
       selectedTicker: null,
       tickers: [],
       graphData: [],
+      currentPage: 1,
+      filter: "",
+      hasNextPage: true,
     };
   },
 
   created() {
+    const urlParams = Object.fromEntries(
+      new URL(window.location).searchParams.entries()
+    );
+    this.currentPage = urlParams?.currentPage;
+    this.filter = urlParams?.filter;
     const tickersData = localStorage.getItem("cryptocurrencies");
 
     if (tickersData) {
@@ -204,6 +232,20 @@ export default {
   },
 
   methods: {
+    filterTickers() {
+      const startIndex = (this.currentPage - 1) * 6;
+      const endIndex = this.currentPage * 6 - 1;
+
+      const filteredTickers = this.tickers.filter((ticker) =>
+        ticker.name.toLowerCase().includes(this.filter.toLowerCase())
+      );
+
+      console.log(filteredTickers.length, endIndex);
+
+      this.hasNextPage = filteredTickers.length > endIndex + 1;
+
+      return filteredTickers.slice(startIndex, endIndex + 1);
+    },
     createTickerUpdatingWatcher(currentTicker) {
       setInterval(async () => {
         const data = await fetch(
@@ -224,7 +266,7 @@ export default {
         name: this.ticker,
         price: "-",
       };
-
+      this.filter = "";
       this.tickers.push(newTicker);
       localStorage.setItem("cryptocurrencies", JSON.stringify(this.tickers));
 
@@ -246,6 +288,26 @@ export default {
     handleTickerSelect(ticker) {
       this.selectedTicker = ticker;
       this.graphData = [];
+    },
+  },
+
+  watch: {
+    filter() {
+      this.currentPage = 1;
+      window.history.pushState(
+        null,
+        document.title,
+        `${window.location.pathname}?filter=${this.filter}&currentPage=${this.currentPage}`
+      );
+    },
+    currentPage() {
+      window.history.pushState(
+        null,
+        document.title,
+        `${window.location.pathname}?currentPage=${this.currentPage}${
+          this.filter ? `&filter=${this.filter}` : ""
+        }`
+      );
     },
   },
 };
