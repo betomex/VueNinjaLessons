@@ -105,7 +105,7 @@
         >
           <div class="px-4 py-5 sm:p-6 text-center">
             <dt class="text-sm font-medium text-gray-500 truncate">
-              {{ t.name }}
+              {{ t.name }} - USD
             </dt>
             <dd class="mt-1 text-3xl font-semibold text-gray-900">
               {{ t.price }}
@@ -192,7 +192,32 @@ export default {
     };
   },
 
+  created() {
+    const tickersData = localStorage.getItem("cryptocurrencies");
+
+    if (tickersData) {
+      this.tickers = JSON.parse(tickersData);
+      this.tickers.forEach((ticker) =>
+        this.createTickerUpdatingWatcher(ticker)
+      );
+    }
+  },
+
   methods: {
+    createTickerUpdatingWatcher(currentTicker) {
+      setInterval(async () => {
+        const data = await fetch(
+          `https://min-api.cryptocompare.com/data/price?fsym=${currentTicker.name}&tsyms=USD&api_key=be3858a6042012d5ba90160a7f2893635e48c5fbe3834e15ec4b5c3d8e5765ce`
+        ).then((r) => r.json());
+
+        this.tickers.find((ticker) => ticker.id === currentTicker.id).price =
+          data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
+
+        if (this.selectedTicker?.id === currentTicker.id) {
+          this.graphData.push(data.USD);
+        }
+      }, 5000);
+    },
     add() {
       const newTicker = {
         id: this.tickers[this.tickers.length - 1]?.id + 1 || 1,
@@ -201,26 +226,15 @@ export default {
       };
 
       this.tickers.push(newTicker);
+      localStorage.setItem("cryptocurrencies", JSON.stringify(this.tickers));
 
-      setInterval(async () => {
-        const data = await fetch(
-          `https://min-api.cryptocompare.com/data/price?fsym=${newTicker.name}&tsyms=USD&api_key=be3858a6042012d5ba90160a7f2893635e48c5fbe3834e15ec4b5c3d8e5765ce`
-        ).then((r) => r.json());
-
-        this.tickers.find((ticker) => ticker.id === newTicker.id).price =
-          data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
-
-        if (this.selectedTicker?.id === newTicker.id) {
-          this.graphData.push(data.USD);
-        }
-
-        console.log(this.normalizedGraphData());
-      }, 3000);
+      this.createTickerUpdatingWatcher(newTicker);
 
       this.ticker = "";
     },
     handleDelete(id) {
       this.tickers = this.tickers.filter((ticker) => ticker.id !== id);
+      localStorage.setItem("cryptocurrencies", JSON.stringify(this.tickers));
     },
     normalizedGraphData() {
       const minValue = Math.min(...this.graphData);
