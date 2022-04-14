@@ -159,7 +159,10 @@
         <h3 class="text-lg leading-6 font-medium text-gray-900 my-8">
           {{ selectedTicker.name }}
         </h3>
-        <div class="flex items-end border-gray-600 border-b border-l h-64">
+        <div
+          ref="graph"
+          class="flex items-end border-gray-600 border-b border-l h-64"
+        >
           <div
             v-for="(bar, index) of normalizedGraphData"
             v-bind:key="index"
@@ -214,6 +217,7 @@ export default {
       selectedTicker: null,
 
       graphData: [],
+      maxGraphElements: 1,
 
       currentPage: 1,
     };
@@ -236,6 +240,14 @@ export default {
         );
       });
     }
+  },
+
+  mounted() {
+    window.addEventListener("resize", this.calculateMaxGraphElements);
+  },
+
+  beforeUnmount() {
+    window.removeEventListener("resize", this.calculateMaxGraphElements);
   },
 
   computed: {
@@ -283,6 +295,11 @@ export default {
   },
 
   methods: {
+    calculateMaxGraphElements() {
+      if (!this.$refs.graph) return;
+      this.maxGraphElements = this.$refs.graph.clientWidth / 38;
+    },
+
     formatPrice(price) {
       if (price === "-") return price;
       return price > 1 ? price.toFixed(2) : price.toPrecision(2);
@@ -294,6 +311,9 @@ export default {
         .forEach((ticker) => {
           if (ticker.id === this.selectedTicker?.id) {
             this.graphData.push(price);
+            while (this.graphData.length > this.maxGraphElements) {
+              this.graphData.shift();
+            }
           }
           ticker.price = price;
         });
@@ -340,6 +360,7 @@ export default {
 
     selectedTicker() {
       this.graphData = [];
+      this.$nextTick().then(() => this.calculateMaxGraphElements());
     },
 
     paginatedTickers() {
